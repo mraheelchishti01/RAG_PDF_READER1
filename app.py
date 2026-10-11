@@ -9,6 +9,42 @@ st.caption("Upload a PDF → chunk text → retrieve relevant passages → gener
 st.info("Local TF-IDF retrieval + Free AI Generation. Use Groq or Gemini for reliable 100% free access without credit limits.")
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def get_groq_models(api_key: str):
+    """Dynamically fetches active chat models from Groq API."""
+    fallback_models = [
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.6-27b",
+    ]
+    if not api_key or not api_key.strip().startswith("gsk_"):
+        return fallback_models
+    try:
+        res = requests.get(
+            "https://api.groq.com/openai/v1/models",
+            headers={"Authorization": f"Bearer {api_key.strip()}"},
+            timeout=5,
+        )
+        if res.status_code == 200:
+            data = res.json().get("data", [])
+            chat_models = [
+                m["id"] for m in data
+                if not any(x in m["id"].lower() for x in ["whisper", "guard", "tts", "distil-whisper", "embeddings"])
+            ]
+            if chat_models:
+                prioritized = []
+                for p in ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]:
+                    if p in chat_models:
+                        prioritized.append(p)
+                for m in chat_models:
+                    if m not in prioritized:
+                        prioritized.append(m)
+                return prioritized
+    except Exception:
+        pass
+    return fallback_models
+
+
 def call_groq(api_key: str, model: str, system_prompt: str, user_prompt: str) -> str:
     """Calls Groq OpenAI-compatible chat completions endpoint (100% Free tier)."""
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -23,7 +59,7 @@ def call_groq(api_key: str, model: str, system_prompt: str, user_prompt: str) ->
             {"role": "user", "content": user_prompt},
         ],
         "temperature": 0.2,
-        "max_tokens": 600,
+        "max_tokens": 800,
     }
     res = requests.post(url, headers=headers, json=payload, timeout=30)
     if res.status_code != 200:
@@ -42,7 +78,7 @@ def call_gemini(api_key: str, model: str, system_prompt: str, user_prompt: str) 
     full_prompt = f"System Instructions:\n{system_prompt}\n\nTask and Context:\n{user_prompt}"
     payload = {
         "contents": [{"parts": [{"text": full_prompt}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 600},
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800},
     }
     res = requests.post(url, headers=headers, json=payload, timeout=30)
     if res.status_code != 200:
@@ -70,7 +106,7 @@ def call_huggingface(api_key: str, model: str, system_prompt: str, user_prompt: 
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        max_tokens=600,
+        max_tokens=800,
         temperature=0.2,
     )
     return response.choices[0].message.content
@@ -86,7 +122,7 @@ with st.sidebar:
             "Hugging Face 🤗",
         ],
         index=0,
-        help="Groq and Gemini have generous free tiers with no credit cards required. Hugging Face free tier runs out quickly.",
+        help="Groq and Gemini have generous free tiers with no credit cards required.",
     )
 
     if "Groq" in provider:
@@ -97,15 +133,14 @@ with st.sidebar:
             type="password",
             help="Free key at https://console.groq.com/keys (No credit card needed)",
         )
+        
+        # Dynamically retrieve active models supported by Groq
+        active_groq_models = get_groq_models(api_key)
         model_id = st.selectbox(
             "Groq Model",
-            [
-                "llama-3.3-70b-versatile",
-                "llama-3.1-8b-instant",
-                "mixtral-8x7b-32768",
-                "gemma2-9b-it",
-            ],
+            active_groq_models,
             index=0,
+            help="Active models on Groq. 'openai/gpt-oss-120b' and 'openai/gpt-oss-20b' are current primary models.",
         )
         st.markdown("[👉 Get Free Groq API Key](https://console.groq.com/keys)")
         st.caption("✅ Fast, accurate, and completely free.")
@@ -177,7 +212,8 @@ if "rag" in st.session_state:
                 )
             else:
                 system_prompt = (
-                    "Answer only from the supplied PDF context. State when the context is insufficient. Cite page numbers."
+                    "Answer only from the supplied PDF context. State when the context is insufficient. Cite page numbers. "
+                    "Provide a direct, concise response grounded in the provided passages."
                 )
                 user_prompt = make_prompt(question, passages)
                 try:
@@ -189,14 +225,20 @@ if "rag" in st.session_state:
                         answer = call_huggingface(api_key, model_id, system_prompt, user_prompt)
                 except Exception as e:
                     err_msg = str(e)
-                    if "402" in err_msg or "Payment Required" in err_msg:
+                    if "404" in err_msg and "does not exist" in err_msg:
+                        answer = (
+                            f"❌ **Groq Model Not Found (404)**\n\n"
+                            f"Model `{model_id}` Groq par available ya active nahi hai.\n\n"
+                            "💡 **Hal:** Sidebar mein model dropdown se **`openai/gpt-oss-120b`** ya **`openai/gpt-oss-20b`** select karein."
+                        )
+                    elif "402" in err_msg or "Payment Required" in err_msg:
                         answer = (
                             "❌ **402 Payment Required: Hugging Face Credits Exhausted**\n\n"
                             "Aapke Hugging Face account ke free inference credits ($0.10) khatam ho chuke hain, is liye router request reject kar raha hai.\n\n"
                             "💡 **Aasan Hal (Fix):**\n"
                             "1. Sidebar mein **Choose AI Provider** dropdown se **`Groq (100% Free & Fast ⚡)`** select karein.\n"
-                            "2. [console.groq.com/keys](https://console.groq.com/keys) se 30 second mein free API key le kar sidebar mein paste karein (koi credit card nahi chahiye).\n"
-                            "3. Groq par `llama-3.3-70b-versatile` super-fast aur unlimited free chalega!\n\n"
+                            "2. [console.groq.com/keys](https://console.groq.com/keys) se free API key le kar sidebar mein paste karein.\n"
+                            "3. Groq par `openai/gpt-oss-120b` super-fast aur free chalega!\n\n"
                             f"Technical Error Details: `{err_msg}`"
                         )
                     else:
