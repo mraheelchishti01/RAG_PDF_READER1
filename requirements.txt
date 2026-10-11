@@ -2,3 +2,4 @@ streamlit>=1.36.0
 pypdf>=4.2.0
 scikit-learn>=1.4.0
 huggingface_hub>=0.24.0
+requests>=2.31.0

@@ -4,13 +4,23 @@ A beginner-friendly RAG teaching demo:
 1. Upload a text-based PDF.
 2. Extract PDF text and split it into overlapping chunks.
 3. Retrieve relevant chunks using TF-IDF cosine similarity.
-4. Send retrieved context to a Hugging Face hosted instruction model.
+4. Send retrieved context to a hosted instruction model (Groq, Google Gemini, or Hugging Face).
 5. Display the answer and retrieved passages/page numbers.
 
 ## Files
-- `app.py` — Streamlit interface and chat flow
+- `app.py` — Streamlit interface with multi-provider AI support (Groq, Gemini, Hugging Face)
 - `rag.py` — PDF parsing, chunking, retrieval, prompt construction
 - `requirements.txt` — dependencies
+
+## AI Providers (Why Groq is Recommended)
+Hugging Face recently changed its Inference Providers router to require credits; free accounts quickly hit **`402 Payment Required`**.
+To fix this, this app supports 100% free alternative providers:
+
+| Provider | Cost | Speed | How to get Key |
+|---|---|---|---|
+| **⚡ Groq (Recommended)** | **100% Free** | **Ultra Fast (~500 T/s)** | [console.groq.com/keys](https://console.groq.com/keys) (No credit card needed) |
+| **🤖 Google Gemini** | **Free (15 RPM)** | **Fast** | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
+| **🤗 Hugging Face** | Limited / Credits | Variable | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) |
 
 ## Run locally
 Python 3.10+ recommended.
@@ -25,24 +35,16 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-In the app sidebar, paste a Hugging Face access token. Create one at:
-https://huggingface.co/settings/tokens
-
-Use a fine-grained token with the minimum permissions needed. Do not commit the token to GitHub or put it in source code.
+In the app sidebar, select **Groq** and paste your free Groq API key, or use Gemini / Hugging Face.
 
 ## Deploy to Streamlit Community Cloud
-1. Create/sign in to GitHub.
-2. Create a public repository, e.g. `free-pdf-rag-lab`.
-3. Upload `app.py`, `rag.py`, `requirements.txt`, and this `README.md` to the repository root.
-4. Visit https://share.streamlit.io/ and sign in with GitHub.
-5. Select **Create app**, choose the repository, branch (usually `main`), and main file path `app.py`.
-6. Deploy. When the app opens, enter your Hugging Face token in the sidebar and upload a PDF.
-7. If deployment fails, open the app's **Manage app → Logs** and check the missing dependency or model error.
-
-## Important free-tier limitations
-- Hugging Face hosted inference is not guaranteed to be unlimited or always available. Free usage is subject to provider/model rate limits, availability, and policy changes.
-- The model ID shown is a default example. If it is unavailable to your account, choose an instruction/chat model currently supported by Hugging Face Inference Providers and update the Model ID field.
-- This simple version uses TF-IDF, not a vector database or neural embeddings. It is intentionally lightweight for a classroom lab.
-- Scanned/image-only PDFs need OCR; this version expects selectable text.
-- Uploaded files and chat history are held in the running Streamlit session. Do not upload confidential documents to a public demo.
-- For a fully local model without hosted inference limits, install Ollama and run a local model, but that local model will not run inside Streamlit Community Cloud by itself.
+1. Push your code to GitHub.
+2. Visit https://share.streamlit.io/ and sign in with GitHub.
+3. Select **Create app**, choose repository `RAG_PDF_READER1`, branch `main`, and main file path `app.py`.
+4. (Optional) In **Advanced Settings → Secrets**, add:
+   ```toml
+   GROQ_API_KEY = "gsk_..."
+   # or
+   GEMINI_API_KEY = "AIza..."
+   ```
+5. Deploy and start chatting with your PDF!
