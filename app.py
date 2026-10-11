@@ -11,7 +11,7 @@ with st.sidebar:
     st.header("Model settings")
     hf_token = st.text_input("Hugging Face access token (free)", type="password",
         help="Create a free account and token at huggingface.co/settings/tokens. Do not put your token in GitHub.")
-    model_id = st.text_input("Model ID", value="Qwen/Qwen2.5-7B-Instruct")
+    model_id = st.text_input("Model ID", value="openai/gpt-oss-120b:fastest")
     top_k = st.slider("Retrieved chunks", 1, 8, 4)
     st.markdown("[Get a Hugging Face token](https://huggingface.co/settings/tokens)")
 
